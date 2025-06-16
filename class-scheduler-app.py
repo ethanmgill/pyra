@@ -43,27 +43,29 @@ class Instructor:
                 self.teach_with_preference = value if pd.notna(value) else "No Preference"
 
 class ClassPeriod:
-    def __init__(self, name):
-        self.name = name
-        self.students = []
-        self.instructors = []
-        self.day = name.split()[0] if " " in name else ""
+    @staticmethod
+    def calculate_name(name):
         
+        day = name.split()[0] if " " in name else ""
         # Extract time from format "Day HH:MMam/pm-HH:MMam/pm"
-        #TODO: ensure 1PM-3PM == 1:00pm - 3:00pm
-        time_pattern = r'(\d+)(:\d+)((?:am|pm))-(\d+)(:\d+)((?:am|pm))'
-        time_match = re.search(time_pattern, name)
-        
-        if time_match:
-            print(time_match.group(2))
-            self.start_time = time_match.group(1) + time_match.group(2) + time_match.group(3)
-            self.end_time =   time_match.group(4) + time_match.group(5) + time_match.group(6)
+        time_pattern = r'((\d+)(:?\d+)?([ampmAMPM]{2}))-((\d+)(:?\d+)?([ampmAMPM]{2}))'
+        m = re.search(time_pattern, name)
 
-        else:
-            self.start_time = ""
-            self.end_time = ""
-        
-        self.name = self.day + self.start_time + self.end_time #TODO: make faster
+        start_time = f"{m.group(2)}{m.group(3) or ":00"}{m.group(4).lower()}"
+        end_time   = f"{m.group(6)}{m.group(7) or ":00"}{m.group(8).lower()}"
+
+        name = f"{day} {start_time}-{end_time}"
+        return (name, day, start_time, end_time)
+
+    def __init__(self, name):
+
+        # instance variables
+        self.name = name
+        self.students = [] 
+        self.instructors = []
+
+        self.name, self.day, self.start_time, self.end_time = self.calculate_name(name)
+            
 
 class ClassSchedulerApp(QMainWindow):
     def __init__(self):
@@ -86,6 +88,12 @@ class ClassSchedulerApp(QMainWindow):
         
         # Setup UI
         self.setup_ui()
+
+    # TODO: Implement to refresh data connections.
+    # ex. I've just added a new student with preferences, does the class 
+    #       know the student exists?
+    def refresh_data(self):
+
         
     def setup_ui(self):
         # Main widget and layout
@@ -445,8 +453,9 @@ class ClassSchedulerApp(QMainWindow):
             
             # Create classes if they don't exist
             for class_name in class_columns:
-                if class_name not in self.classes:
-                    self.classes[class_name] = ClassPeriod(class_name)
+                fname = ClassPeriod.calculate_name(class_name)[0]
+                if fname not in self.classes:
+                    self.classes[fname] = ClassPeriod(class_name)
         
         # Update instructors table
         self.update_instructors_table()
