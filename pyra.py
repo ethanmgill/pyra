@@ -93,7 +93,7 @@ class ClassSchedulerApp(QMainWindow):
     # ex. I've just added a new student with preferences, does the class 
     #       know the student exists?
     def refresh_data(self):
-
+        pass
         
     def setup_ui(self):
         # Main widget and layout
