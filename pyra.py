@@ -21,7 +21,7 @@ class Student:
         
         # Process data to extract and clean data #
         for column, value in data.items():
-            # Class data (extract)
+            # Class data (extract and clean)
             if re.match(r'^(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)', column):
                 self.classes[column] = value if pd.notna(value) else ""
             # Building assignment (clean)
@@ -37,8 +37,11 @@ class Instructor:
         
         # Process data to extract class availability and preferences
         for column, value in data.items():
+            # Class availability (extract and clean)
             if re.match(r'^(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)', column):
-                self.classes[column] = value if pd.notna(value) else ""
+                fname = ClassPeriod.calculate_name(column)[0]
+                self.classes[fname] = value if pd.notna(value) else ""
+            # Teaching preference (extract and clean)
             elif column == "Would you like to teach with someone else?":
                 self.teach_with_preference = value if pd.notna(value) else "No Preference"
 
@@ -88,12 +91,6 @@ class ClassSchedulerApp(QMainWindow):
         
         # Setup UI
         self.setup_ui()
-
-    # TODO: Implement to refresh data connections.
-    # ex. I've just added a new student with preferences, does the class 
-    #       know the student exists?
-    def refresh_data(self):
-        pass
         
     def setup_ui(self):
         # Main widget and layout
@@ -390,9 +387,14 @@ class ClassSchedulerApp(QMainWindow):
             
             # Create classes if they don't exist
             for class_name in class_columns:
+                fname = ClassPeriod.calculate_name(class_name)[0]
+                if fname not in self.classes:
+                    self.classes[fname] = ClassPeriod(class_name)
+            '''
+            for class_name in class_columns:
                 if class_name not in self.classes:
                     self.classes[class_name] = ClassPeriod(class_name)
-        
+            '''
         # Update students table
         self.update_students_table()
         self.update_classes_table()
@@ -522,6 +524,7 @@ class ClassSchedulerApp(QMainWindow):
         
         # Clear current schedule
         self.schedule_table.setRowCount(0)
+        self.detailed_schedule = []  # Clear detailed schedule data
         
         # Track assigned students and instructors
         assigned_students = set()
@@ -582,8 +585,8 @@ class ClassSchedulerApp(QMainWindow):
                 # Mark these students as assigned
                 assigned_students.update(selected_students)
                 
-                # Add to schedule table
-                self.add_to_schedule(class_name, selected_instructors, selected_students)
+                # Add to schedule table with detailed information
+                self.add_to_schedule_detailed(class_name, selected_instructors, selected_students)
         
         self.log_activity(f"Schedule generated with {self.schedule_table.rowCount()} classes")
         self.update_dashboard_stats()
@@ -591,28 +594,83 @@ class ClassSchedulerApp(QMainWindow):
         # Switch to schedule tab
         self.tabs.setCurrentIndex(self.tabs.indexOf(self.tabs.findChild(QWidget, "Schedule")))
     
-    def add_to_schedule(self, class_name, instructor_ids, student_ids):
+    def add_to_schedule_detailed(self, class_name, instructor_ids, student_ids):
         row_position = self.schedule_table.rowCount()
         self.schedule_table.insertRow(row_position)
         
         # Set class name/time
         self.schedule_table.setItem(row_position, 0, QTableWidgetItem(class_name))
         
-        # Set instructors
-        instructor_names = ", ".join(instructor_ids)
-        self.schedule_table.setItem(row_position, 1, QTableWidgetItem(instructor_names))
+        # Get detailed instructor information
+        instructor_details = []
+        instructor_display = []
+        for instructor_id in instructor_ids:
+            instructor = self.instructors.get(instructor_id)
+            if instructor:
+                # Get instructor name from data, fallback to ID if no name
+                instructor_name = instructor.data.get('Name', instructor.data.get('First Name', '')) 
+                if not instructor_name:
+                    instructor_name = instructor.data.get('Last Name', instructor_id)
+                
+                instructor_details.append({
+                    'ID': instructor_id,
+                    'Name': instructor_name
+                })
+                instructor_display.append(f"{instructor_name} ({instructor_id})")
         
-        # Set students
+        # Set instructors display
+        instructor_text = "\n".join(instructor_display)
+        self.schedule_table.setItem(row_position, 1, QTableWidgetItem(instructor_text))
+        
+        # Get detailed student information
+        student_details = []
+        student_display = []
+        for student_id in student_ids:
+            student = self.students.get(student_id)
+            if student:
+                # Get student name from data, fallback to ID if no name
+                student_name = student.data.get('Name', student.data.get('First Name', ''))
+                if not student_name:
+                    student_name = student.data.get('Last Name', student_id)
+                
+                building = student.data.get('Building', 'N/A')
+                
+                student_details.append({
+                    'ID': student_id,
+                    'Name': student_name,
+                    'Building': building
+                })
+                student_display.append(f"{student_name} ({student_id})")
+        
+        # Set student count
         student_count = len(student_ids)
         student_text = f"{student_count} students"
         self.schedule_table.setItem(row_position, 2, QTableWidgetItem(student_text))
         
+        # Set detailed student information (truncated for display)
+        if len(student_display) <= 5:
+            student_details_text = "\n".join(student_display)
+        else:
+            student_details_text = "\n".join(student_display[:5]) + f"\n... and {len(student_display) - 5} more"
+        
+        self.schedule_table.setItem(row_position, 3, QTableWidgetItem(student_details_text))
+        
         # Set room (placeholder)
-        self.schedule_table.setItem(row_position, 3, QTableWidgetItem("TBD"))
+        self.schedule_table.setItem(row_position, 4, QTableWidgetItem("TBD"))
         
         # Set status
         status = "Scheduled"
-        self.schedule_table.setItem(row_position, 4, QTableWidgetItem(status))
+        self.schedule_table.setItem(row_position, 5, QTableWidgetItem(status))
+        
+        # Store detailed information for export
+        class_data = {
+            'Class Time': class_name,
+            'Instructors': instructor_details,
+            'Students': student_details,
+            'Room': 'TBD',
+            'Status': 'Scheduled'
+        }
+        self.detailed_schedule.append(class_data)
     
     def export_schedule(self):
         if self.schedule_table.rowCount() == 0:
@@ -626,24 +684,94 @@ class ClassSchedulerApp(QMainWindow):
             return
         
         try:
-            # Create a dataframe from the schedule table
-            rows = []
-            for row in range(self.schedule_table.rowCount()):
-                row_data = {}
-                row_data["Class Time"] = self.schedule_table.item(row, 0).text()
-                row_data["Instructors"] = self.schedule_table.item(row, 1).text()
-                row_data["Students"] = self.schedule_table.item(row, 2).text()
-                row_data["Room"] = self.schedule_table.item(row, 3).text()
-                row_data["Status"] = self.schedule_table.item(row, 4).text()
-                rows.append(row_data)
+            # Create detailed schedule data for export
+            export_data = []
             
-            df = pd.DataFrame(rows)
+            for class_data in self.detailed_schedule:
+                # Create a row for each class with detailed information
+                base_row = {
+                    'Class Time': class_data['Class Time'],
+                    'Room': class_data['Room'],
+                    'Status': class_data['Status'],
+                    'Total Students': len(class_data['Students']),
+                    'Total Instructors': len(class_data['Instructors'])
+                }
+                
+                # Add instructor details
+                instructor_names = []
+                instructor_ids = []
+                for instructor in class_data['Instructors']:
+                    instructor_names.append(instructor['Name'])
+                    instructor_ids.append(instructor['ID'])
+                
+                base_row['Instructor Names'] = '; '.join(instructor_names)
+                base_row['Instructor IDs'] = '; '.join(instructor_ids)
+                
+                # Add student details
+                student_names = []
+                student_ids = []
+                student_buildings = []
+                for student in class_data['Students']:
+                    student_names.append(student['Name'])
+                    student_ids.append(student['ID'])
+                    student_buildings.append(student['Building'])
+                
+                base_row['Student Names'] = '; '.join(student_names)
+                base_row['Student IDs'] = '; '.join(student_ids)
+                base_row['Student Buildings'] = '; '.join(student_buildings)
+                
+                export_data.append(base_row)
             
-            # Export to Excel
-            df.to_excel(filename, index=False)
+            # Create DataFrame and export
+            df = pd.DataFrame(export_data)
             
-            QMessageBox.information(self, "Export", "Schedule exported successfully!")
-            self.log_activity(f"Schedule exported to {os.path.basename(filename)}")
+            # Reorder columns for better readability
+            column_order = [
+                'Class Time', 'Total Students', 'Total Instructors',
+                'Instructor Names', 'Instructor IDs',
+                'Student Names', 'Student IDs', 'Student Buildings',
+                'Room', 'Status'
+            ]
+            
+            df = df[column_order]
+            
+            # Create Excel writer with multiple sheets
+            with pd.ExcelWriter(filename, engine='openpyxl') as writer:
+                # Main schedule sheet
+                df.to_excel(writer, sheet_name='Schedule Summary', index=False)
+                
+                # Detailed breakdown sheet
+                detailed_breakdown = []
+                for class_data in self.detailed_schedule:
+                    class_name = class_data['Class Time']
+                    
+                    # Add instructors for this class
+                    for instructor in class_data['Instructors']:
+                        detailed_breakdown.append({
+                            'Class Time': class_name,
+                            'Type': 'Instructor',
+                            'ID': instructor['ID'],
+                            'Name': instructor['Name'],
+                            'Building': 'N/A'
+                        })
+                    
+                    # Add students for this class
+                    for student in class_data['Students']:
+                        detailed_breakdown.append({
+                            'Class Time': class_name,
+                            'Type': 'Student',
+                            'ID': student['ID'],
+                            'Name': student['Name'],
+                            'Building': student['Building']
+                        })
+                
+                detailed_df = pd.DataFrame(detailed_breakdown)
+                if not detailed_df.empty:
+                    detailed_df.to_excel(writer, sheet_name='Detailed Assignments', index=False)
+            
+            QMessageBox.information(self, "Export", "Schedule exported successfully!\n\nThe file contains:\n- Schedule Summary: Overview of each class\n- Detailed Assignments: Individual student and instructor assignments")
+            self.log_activity(f"Detailed schedule exported to {os.path.basename(filename)}")
+            
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to export schedule: {str(e)}")
             self.log_activity(f"Error exporting schedule: {str(e)}")
