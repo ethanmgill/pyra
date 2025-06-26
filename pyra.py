@@ -15,6 +15,7 @@ from PyQt5.QtGui import QIcon, QFont, QColor
 class Student:
     def __init__(self, student_id, data):
         self.id = student_id
+        self.full_name = "N/A"
         self.data = data
         self.classes = {}  # Dictionary to store class preferences
         self.building = "N/A"
@@ -24,6 +25,15 @@ class Student:
             # Class data (extract and clean)
             if re.match(r'^(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)', column):
                 self.classes[column] = value if pd.notna(value) else ""
+            # Full name (extract and clean)
+            elif re.match(r'^(First Name|Last Name|Name)$', column):
+                if column == "Name":
+                    self.full_name = value if pd.notna(value) else "N/A"
+                else:
+                    # If First Name or Last Name, combine them
+                    first_name = data.get('First Name', '')
+                    last_name = data.get('Last Name', '')
+                    self.full_name = f"{first_name} {last_name}".strip() or "N/A"
             # Building assignment (clean)
             elif re.match(r'^Building', column):
                 self.building = data.get(column)
@@ -31,6 +41,7 @@ class Student:
 class Instructor:
     def __init__(self, instructor_id, data):
         self.id = instructor_id
+        self.full_name = "N/A"
         self.data = data
         self.classes = {}  # Dictionary to store class availability
         self.teach_with_preference = "No Preference"
@@ -41,6 +52,15 @@ class Instructor:
             if re.match(r'^(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)', column):
                 fname = ClassPeriod.calculate_name(column)[0]
                 self.classes[fname] = value if pd.notna(value) else ""
+            # Full name (extract and clean)
+            elif re.match(r'^(First Name|Last Name|Name)$', column):
+                if column == "Name":
+                    self.full_name = value if pd.notna(value) else "N/A"
+                else:
+                    # If First Name or Last Name, combine them
+                    first_name = data.get('First Name', '')
+                    last_name = data.get('Last Name', '')
+                    self.full_name = f"{first_name} {last_name}".strip() or "N/A"
             # Teaching preference (extract and clean)
             elif column == "Would you like to teach with someone else?":
                 self.teach_with_preference = value if pd.notna(value) else "No Preference"
@@ -134,7 +154,7 @@ class ClassSchedulerApp(QMainWindow):
             {"title": "Students", "value": "0", "id": "students_count"},
             {"title": "Instructors", "value": "0", "id": "instructors_count"},
             {"title": "Classes", "value": "0", "id": "classes_count"},
-            {"title": "Scheduled Classes", "value": "0", "id": "scheduled_count"}
+            {"title": "Schedule Builder", "value": "0", "id": "scheduled_count"}
         ]
         
         for box in stats_boxes:
@@ -207,7 +227,7 @@ class ClassSchedulerApp(QMainWindow):
         
         # Table for students
         self.students_table = QTableWidget(0, 4)  # Start with 4 columns
-        self.students_table.setHorizontalHeaderLabels(["Student ID", "Building", "Data Points", "Classes"])
+        self.students_table.setHorizontalHeaderLabels(["Student ID","Full Name", "Building", "Classes"])
         self.students_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         
         layout.addLayout(controls_layout)
@@ -234,9 +254,9 @@ class ClassSchedulerApp(QMainWindow):
         controls_layout.addStretch()
         
         # Table for instructors
-        self.instructors_table = QTableWidget(0, 3)  # Start with 3 columns
+        self.instructors_table = QTableWidget(0, 4)  # Start with 3 columns
         self.instructors_table.setHorizontalHeaderLabels(
-            ["Instructor ID", "Teach with Others", "Available Classes"])
+            ["Instructor ID", "Full Name", "Teach with Others", "Available Classes"])
         self.instructors_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         
         layout.addLayout(controls_layout)
@@ -292,9 +312,9 @@ class ClassSchedulerApp(QMainWindow):
         controls_layout.addStretch()
         
         # Schedule view
-        self.schedule_table = QTableWidget(0, 5)
+        self.schedule_table = QTableWidget(0, 4)  # Start with 3 columns
         self.schedule_table.setHorizontalHeaderLabels(
-            ["Class Time", "Instructors", "Students", "Room", "Status"])
+            ["Class Time", "Instructors", "Students", "Student Count"])
         self.schedule_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         
         layout.addLayout(controls_layout)
@@ -387,14 +407,10 @@ class ClassSchedulerApp(QMainWindow):
             
             # Create classes if they don't exist
             for class_name in class_columns:
-                fname = ClassPeriod.calculate_name(class_name)[0]
+                fname = ClassPeriod.calculate_name(class_name)[0]  # Commonize class name
                 if fname not in self.classes:
                     self.classes[fname] = ClassPeriod(class_name)
-            '''
-            for class_name in class_columns:
-                if class_name not in self.classes:
-                    self.classes[class_name] = ClassPeriod(class_name)
-            '''
+
         # Update students table
         self.update_students_table()
         self.update_classes_table()
@@ -408,15 +424,19 @@ class ClassSchedulerApp(QMainWindow):
             
             # Set student ID
             self.students_table.setItem(row_position, 0, QTableWidgetItem(student_id))
-            
+
+            # Set full name if available
+            full_name = student.full_name
+            self.students_table.setItem(row_position, 1, QTableWidgetItem(full_name))
+
             # Set building if available
             building = student.building
-            self.students_table.setItem(row_position, 1, QTableWidgetItem(str(building)))
-            
+            self.students_table.setItem(row_position, 2, QTableWidgetItem(str(building)))
+            '''
             # Count data points
             data_points = sum(1 for key in student.data if key not in ['ID', 'Building'] and pd.notna(student.data[key]))
             self.students_table.setItem(row_position, 2, QTableWidgetItem(str(data_points)))
-            
+            '''
             # List classes
             classes_text = ", ".join([f"{class_name}: {preference}" 
                                      for class_name, preference in student.classes.items() 
@@ -473,14 +493,18 @@ class ClassSchedulerApp(QMainWindow):
             # Set instructor ID
             self.instructors_table.setItem(row_position, 0, QTableWidgetItem(instructor_id))
             
+            # Set full name if available
+            full_name = instructor.full_name
+            self.instructors_table.setItem(row_position, 1, QTableWidgetItem(full_name))
+
             # Set teaching preference
             pref = instructor.teach_with_preference
-            self.instructors_table.setItem(row_position, 1, QTableWidgetItem(str(pref)))
+            self.instructors_table.setItem(row_position, 2, QTableWidgetItem(str(pref)))
             
             # List available classes
             available_classes = ", ".join([class_name for class_name, availability in instructor.classes.items() 
                                           if availability and availability.lower() != "does not fit"])
-            self.instructors_table.setItem(row_position, 2, QTableWidgetItem(available_classes))
+            self.instructors_table.setItem(row_position, 3, QTableWidgetItem(available_classes))
     
     def update_classes_table(self):
         self.classes_table.setRowCount(0)
@@ -608,10 +632,7 @@ class ClassSchedulerApp(QMainWindow):
             instructor = self.instructors.get(instructor_id)
             if instructor:
                 # Get instructor name from data, fallback to ID if no name
-                instructor_name = instructor.data.get('Name', instructor.data.get('First Name', '')) 
-                if not instructor_name:
-                    instructor_name = instructor.data.get('Last Name', instructor_id)
-                
+                instructor_name = instructor.full_name
                 instructor_details.append({
                     'ID': instructor_id,
                     'Name': instructor_name
@@ -629,10 +650,7 @@ class ClassSchedulerApp(QMainWindow):
             student = self.students.get(student_id)
             if student:
                 # Get student name from data, fallback to ID if no name
-                student_name = student.data.get('Name', student.data.get('First Name', ''))
-                if not student_name:
-                    student_name = student.data.get('Last Name', student_id)
-                
+                student_name = student.full_name
                 building = student.data.get('Building', 'N/A')
                 
                 student_details.append({
@@ -645,7 +663,7 @@ class ClassSchedulerApp(QMainWindow):
         # Set student count
         student_count = len(student_ids)
         student_text = f"{student_count} students"
-        self.schedule_table.setItem(row_position, 2, QTableWidgetItem(student_text))
+        self.schedule_table.setItem(row_position, 3, QTableWidgetItem(student_text))
         
         # Set detailed student information (truncated for display)
         if len(student_display) <= 5:
@@ -653,15 +671,12 @@ class ClassSchedulerApp(QMainWindow):
         else:
             student_details_text = "\n".join(student_display[:5]) + f"\n... and {len(student_display) - 5} more"
         
-        self.schedule_table.setItem(row_position, 3, QTableWidgetItem(student_details_text))
-        
-        # Set room (placeholder)
-        self.schedule_table.setItem(row_position, 4, QTableWidgetItem("TBD"))
-        
+        self.schedule_table.setItem(row_position, 2, QTableWidgetItem(student_details_text))
+        '''
         # Set status
         status = "Scheduled"
         self.schedule_table.setItem(row_position, 5, QTableWidgetItem(status))
-        
+        '''
         # Store detailed information for export
         class_data = {
             'Class Time': class_name,
@@ -672,7 +687,7 @@ class ClassSchedulerApp(QMainWindow):
         }
         self.detailed_schedule.append(class_data)
     
-    def export_schedule(self):
+    def export_schedule(self):  #TODO: fix formatting on file
         if self.schedule_table.rowCount() == 0:
             QMessageBox.warning(self, "Warning", "Please generate a schedule first.")
             return
@@ -682,6 +697,9 @@ class ClassSchedulerApp(QMainWindow):
         
         if not filename:
             return
+        
+        if not filename.endswith('.xlsx'):
+            filename += '.xlsx'
         
         try:
             # Create detailed schedule data for export
