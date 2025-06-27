@@ -1,5 +1,6 @@
 import sys
 import os
+import openpyxl
 import pandas as pd
 from datetime import datetime
 import re
@@ -106,6 +107,7 @@ class ClassSchedulerApp(QMainWindow):
             "max_students_per_class": 20,
             "max_instructors_per_class": 2,
             "min_students_per_class": 6,
+            "max_classes_per_instructor": 2,
             "prioritize_first_choice": True
         }
         
@@ -346,6 +348,12 @@ class ClassSchedulerApp(QMainWindow):
         self.min_students_spinbox.valueChanged.connect(
             lambda val: self.update_setting("min_students_per_class", val))
         
+        self.max_classes_per_instructor_spinbox = QSpinBox()
+        self.max_classes_per_instructor_spinbox.setRange(1, 10)
+        self.max_classes_per_instructor_spinbox.setValue(self.settings["max_classes_per_instructor"])
+        self.max_classes_per_instructor_spinbox.valueChanged.connect(
+            lambda val: self.update_setting("max_classes_per_instructor", val))
+
         self.prioritize_combo = QComboBox()
         self.prioritize_combo.addItems(["Yes", "No"])
         self.prioritize_combo.setCurrentText("Yes" if self.settings["prioritize_first_choice"] else "No")
@@ -356,6 +364,7 @@ class ClassSchedulerApp(QMainWindow):
         layout.addRow("Maximum Students per Class:", self.max_students_spinbox)
         layout.addRow("Maximum Instructors per Class:", self.max_instructors_spinbox)
         layout.addRow("Minimum Students for Class to Run:", self.min_students_spinbox)
+        layout.addRow("Maximum Classes per Instructor:", self.max_classes_per_instructor_spinbox)
         layout.addRow("Prioritize First Choice Students:", self.prioritize_combo)
         
         # Save settings button
@@ -651,7 +660,7 @@ class ClassSchedulerApp(QMainWindow):
             if student:
                 # Get student name from data, fallback to ID if no name
                 student_name = student.full_name
-                building = student.data.get('Building', 'N/A')
+                building = student.building
                 
                 student_details.append({
                     'ID': student_id,
@@ -782,11 +791,34 @@ class ClassSchedulerApp(QMainWindow):
                             'Name': student['Name'],
                             'Building': student['Building']
                         })
+                    
+                    # Add a line break between classes for clarity
+                    detailed_breakdown.append({
+                        'Class Time': '',
+                        'Type': '',
+                        'ID': '',
+                        'Name': '',
+                        'Building': ''
+                    })
                 
                 detailed_df = pd.DataFrame(detailed_breakdown)
                 if not detailed_df.empty:
                     detailed_df.to_excel(writer, sheet_name='Detailed Assignments', index=False)
             
+                # Set column widths for 'Schedule Summary' sheet
+                worksheet = writer.sheets['Schedule Summary']
+                for col in df.columns:
+                    max_length = max(df[col].astype(str).map(len).max(), len(col))
+                    col_letter = openpyxl.utils.get_column_letter(df.columns.get_loc(col) + 1)
+                    worksheet.column_dimensions[col_letter].width = max_length + 2
+                
+                # Set column widths for 'Detailed Assignments' sheet
+                detailed_worksheet = writer.sheets['Detailed Assignments']
+                for col in detailed_df.columns:
+                    max_length = max(detailed_df[col].astype(str).map(len).max(), len(col))
+                    col_letter = openpyxl.utils.get_column_letter(detailed_df.columns.get_loc(col) + 1)
+                    detailed_worksheet.column_dimensions[col_letter].width = max_length + 2
+
             QMessageBox.information(self, "Export", "Schedule exported successfully!\n\nThe file contains:\n- Schedule Summary: Overview of each class\n- Detailed Assignments: Individual student and instructor assignments")
             self.log_activity(f"Detailed schedule exported to {os.path.basename(filename)}")
             
