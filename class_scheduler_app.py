@@ -309,9 +309,9 @@ class ClassSchedulerApp(QMainWindow):
         # Add tab
         self.tabs.addTab(settings_widget, "Settings")
 
-
+    #                 #
     #  BACKEND LOGIC  #
-    
+    #                 #
 
     def update_setting(self, key, value):
         self.settings[key] = value
@@ -549,7 +549,7 @@ class ClassSchedulerApp(QMainWindow):
         # given a list of class names try to enroll the student in one of them
         # if a section already exists with space, enroll them in that
         # if not, create a new section with available instructors
-        def try_enroll(student, class_list):
+        def try_enroll(student, class_list, instructors):
             for class_name in class_list:
                 if class_name in class_scores:  # if the class is viable
                     # check if a section already exists with space
@@ -567,11 +567,11 @@ class ClassSchedulerApp(QMainWindow):
                         if class_name in instructor.classes and instructor.classes[class_name] != "Does Not Fit"
                         and assigned_instructors.get(instructor_id, 0) < self.settings["max_classes_per_instructor"]
                     ]
-                    if student.id not in assigned_students and available_instructors:
-                        available_instructors.sort(key=lambda x: assigned_instructors.get(x, 0))
-                        selected_instructors = available_instructors[:self.settings["max_instructors_per_class"]]
+                    if student.id not in assigned_students and available_instructors:  # if the student is not assigned & there's viable instructors...
+                        available_instructors.sort(key=lambda x: assigned_instructors.get(x, 0))  # sort the instructors by availability
+                        selected_instructors = available_instructors[:1]  # select the top instructor
                         for instructor_id in selected_instructors:
-                            assigned_instructors[instructor_id] = assigned_instructors.get(instructor_id, 0) + 1
+                            assigned_instructors[instructor_id] = assigned_instructors.get(instructor_id, 0) + 1  # increment their assigned classes count
                         # Create a new section for this class
                         new_section = ClassPeriod(class_name, instructors=selected_instructors)
                         new_section.students.append(student)
@@ -597,7 +597,7 @@ class ClassSchedulerApp(QMainWindow):
             if student.id not in assigned_students:
                 try_enroll(student, second_choice_classes)
             
-        self.log_activity(f"Assigned {len(assigned_students)} students to classes in Phase 1.")
+        self.log_activity(f"Assigned {len(assigned_students)} students out of {len(sorted_students)} to classes in Phase 1.")
 
         '''
         #  Phase 1: Try to fill existing classes optimally (greedy)  #
