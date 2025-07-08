@@ -519,6 +519,23 @@ class ClassSchedulerApp(QMainWindow):
         return cleaned_classes
 
     def generate_schedule(self):
+        # set up schedule structure and calculate class demand
+
+        # priority calculation
+            # student preferences
+
+            # student flexibility
+
+            # class demand
+
+        # student assignment
+
+        # instructor assignment
+
+        # cleanup
+        pass
+
+    def generate_schedule_old(self):
         if not self.students or not self.instructors:
             QMessageBox.warning(self, "Warning", "Please import both students and instructors first.")
             return

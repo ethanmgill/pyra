@@ -1,15 +1,38 @@
+from enums import Availability
+from typing import Dict
 import pandas as pd
 import re
 
 class Student:
-    def __init__(self, student_id, data):
-        self.id = student_id
-        self.full_name = "N/A"
-        self.data = data
-        self.classes = {}  # Dictionary to store class preferences
-        self.building = "N/A"
-        self.flexibility = 0
+    id: str
+    full_name: str
+    #  data: pd.Series  | maybe?
+    classes: Dict[str, str]  # Dictionary to store class preferences NOTE: should this be Dict[ClassPeriod, Availability]?
+    building: str
+    flexibility: int  # Number of flexible class preferences
+
+    def __post_init__(self):
+        self.flexibility = self._calculate_flexibility()
+    
+    def _calculate_flexibility(self) -> int:
+        """Calculate flexibility score based on availability preferences"""
+        score = 0
+        for availability in self.classes.values():
+            if availability == Availability.FIRST_CHOICE.value:
+                score += 2
+            elif availability == Availability.FITS.value:
+                score += 1
+            elif availability == Availability.DOES_NOT_FIT.value:
+                score -= 1
+        return score
+    
+    def get_availability(self, class_time: str) -> Availability:
+        """Get availability enum for a class time"""
+        availability_str = self.classes.get(class_time, Availability.DOES_NOT_FIT.value)
+        return Availability(availability_str)
         
+        '''       # Deprecated cleaning logic, move to import logic in schedule_engine.py
+
         # Process data to extract and clean data #
         for column, value in data.items():
             # Class data (extract and clean)
@@ -28,3 +51,5 @@ class Student:
             # Building assignment (clean)
             elif re.match(r'^Building', column):
                 self.building = data.get(column)
+
+        '''
