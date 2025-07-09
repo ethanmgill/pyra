@@ -1,4 +1,4 @@
-from schedule_engine import ClassSchedulerApp
+from schedule_engine import ClassScheduler
 from collections import defaultdict
 import sys
 import os
@@ -32,6 +32,9 @@ class ClassSchedulerAppGUI(QMainWindow):
         self.setWindowTitle("Class Scheduler")
         self.setMinimumSize(1200, 800)
         
+        # Backend
+        self.scheduler = ClassScheduler()
+
         # Application data
         self.students = {}
         self.instructors = {}
@@ -39,8 +42,6 @@ class ClassSchedulerAppGUI(QMainWindow):
         
         # Settings with defaults
         self.settings = settings
-
-        self.schedule_engine = 
         
         # Setup UI
         self.setup_ui()
@@ -118,10 +119,10 @@ class ClassSchedulerAppGUI(QMainWindow):
         import_instructors_btn.clicked.connect(self.import_instructors)
         
         generate_schedule_btn = QPushButton("Generate Schedule")
-        generate_schedule_btn.clicked.connect(self.generate_schedule)
+        generate_schedule_btn.clicked.connect(self.scheduler.generate_schedule)
         
         export_schedule_btn = QPushButton("Export Schedule")
-        export_schedule_btn.clicked.connect(self.export_schedule)
+        export_schedule_btn.clicked.connect(self.scheduler.export_schedule)
         
         actions_layout.addWidget(import_students_btn)
         actions_layout.addWidget(import_instructors_btn)
