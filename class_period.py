@@ -13,6 +13,7 @@ MAX_INSTRUCTORS_PER_CLASS = lambda: Settings().get_setting(Setting.MAX_INSTRUCTO
 MAX_STUDENTS_PER_CLASS = lambda: Settings().get_setting(Setting.MAX_STUDENTS_PER_CLASS)
 MAX_SECTIONS_PER_CLASS = lambda: Settings().get_setting(Setting.MAX_SECTIONS_PER_CLASS)
 
+@dataclass
 class ClassPeriod:
 
     def __init__(self, name, students=[], instructors=[]):

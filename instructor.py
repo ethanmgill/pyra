@@ -1,19 +1,8 @@
 from dataclasses import dataclass, field
 from typing import Dict
-import pandas as pd
-import re
-from class_period import ClassPeriod
 from enums import Availability, TeachingPreference
 from settings import Settings, Setting
 
-# Configuration constants
-MIN_STUDENTS = lambda: Settings().get_setting(Setting.MIN_STUDENTS_PER_CLASS)
-MAX_CLASSES_PER_INSTRUCTOR = lambda: Settings().get_setting(Setting.MAX_CLASSES_PER_INSTRUCTOR)
-MAX_INSTRUCTORS_PER_CLASS = lambda: Settings().get_setting(Setting.MAX_INSTRUCTORS_PER_CLASS)
-MAX_STUDENTS_PER_CLASS = lambda: Settings().get_setting(Setting.MAX_STUDENTS_PER_CLASS)
-MAX_SECTIONS_PER_CLASS = lambda: Settings().get_setting(Setting.MAX_SECTIONS_PER_CLASS)
-
-@dataclass
 class Instructor:
     id: str
     full_name: str
@@ -49,12 +38,12 @@ class Instructor:
     
     def get_availability(self, class_time: str) -> Availability:
         """Get availability enum for a class time"""
-        availability_str = self.classes.get(class_time, Availability.DOES_NOT_FIT.value)
+        availability_str = self.classes.get(class_time, Availability.NOT_AVAILABLE.value)
         return Availability(availability_str)
     
     def can_teach_more(self) -> bool:
         """Check if instructor can be assigned to more classes"""
-        return self.assigned_classes < MAX_CLASSES_PER_INSTRUCTOR
+        return self.assigned_classes < Settings.get_setting(Setting.MAX_CLASSES_PER_INSTRUCTOR)
     
     def prefers_co_teaching(self) -> bool:
         """Check if instructor prefers to teach with others"""

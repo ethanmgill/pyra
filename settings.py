@@ -1,7 +1,7 @@
 import json
 import os
 from enum import Enum
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 from threading import Lock
 
 class Setting(Enum):

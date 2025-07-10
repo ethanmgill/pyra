@@ -4,6 +4,9 @@ from collections import defaultdict
 import heapq
 from enums import Availability, TeachingPreference
 from settings import Settings, Setting
+from instructor import Instructor
+from student import Student
+from class_period import ClassPeriod, ClassSection
 
 # Configuration constants
 MIN_STUDENTS = lambda: Settings().get_setting(Setting.MIN_STUDENTS_PER_CLASS)
@@ -11,139 +14,6 @@ MAX_CLASSES_PER_INSTRUCTOR = lambda: Settings().get_setting(Setting.MAX_CLASSES_
 MAX_INSTRUCTORS_PER_CLASS = lambda: Settings().get_setting(Setting.MAX_INSTRUCTORS_PER_CLASS)
 MAX_STUDENTS_PER_CLASS = lambda: Settings().get_setting(Setting.MAX_STUDENTS_PER_CLASS)
 MAX_SECTIONS_PER_CLASS = lambda: Settings().get_setting(Setting.MAX_SECTIONS_PER_CLASS)
-
-@dataclass
-class Student:
-    student_id: str
-    full_name: str
-    classes: Dict[str, str]  # class_time -> availability
-    building: str
-    flexibility: int = field(init=False)
-    
-    def __post_init__(self):
-        self.flexibility = self._calculate_flexibility()
-    
-    def _calculate_flexibility(self) -> int:
-        """Calculate flexibility score based on availability preferences"""
-        score = 0
-        for availability in self.classes.values():
-            if availability == Availability.FIRST_CHOICE.value:
-                score += 2
-            elif availability == Availability.FITS.value:
-                score += 1
-            elif availability == Availability.DOES_NOT_FIT.value:
-                score -= 1
-        return score
-    
-    def get_availability(self, class_time: str) -> Availability:
-        """Get availability enum for a class time"""
-        availability_str = self.classes.get(class_time, Availability.DOES_NOT_FIT.value)
-        return Availability(availability_str)
-
-@dataclass
-class Instructor:
-    id: str
-    full_name: str
-    classes: Dict[str, str]  # class_time -> availability
-    teach_with_preference: str
-    assigned_classes: int = field(default=0, init=False)
-    
-    def get_availability(self, class_time: str) -> Availability:
-        """Get availability enum for a class time"""
-        availability_str = self.classes.get(class_time, Availability.DOES_NOT_FIT.value)
-        return Availability(availability_str)
-    
-    def can_teach_more(self) -> bool:
-        """Check if instructor can be assigned to more classes"""
-        return self.assigned_classes < MAX_CLASSES_PER_INSTRUCTOR
-    
-    def prefers_co_teaching(self) -> bool:
-        """Check if instructor prefers to teach with others"""
-        return self.teach_with_preference == TeachingPreference.YES.value
-
-@dataclass
-class ClassSection:
-    """Individual section of a class period"""
-    name: str
-    students: List[Student] = field(default_factory=list)
-    instructors: List[Instructor] = field(default_factory=list)
-    
-    def add_student(self, student: Student) -> bool:
-        """Add student if there's space"""
-        if len(self.students) < MAX_STUDENTS_PER_CLASS:
-            self.students.append(student)
-            return True
-        return False
-    
-    def add_instructor(self, instructor: Instructor) -> bool:
-        """Add instructor if there's space and they can teach more"""
-        if (len(self.instructors) < MAX_INSTRUCTORS_PER_CLASS and 
-            instructor.can_teach_more()):
-            self.instructors.append(instructor)
-            instructor.assigned_classes += 1
-            return True
-        return False
-    
-    def get_student_count(self) -> int:
-        return len(self.students)
-    
-    def get_instructor_count(self) -> int:
-        return len(self.instructors)
-    
-    def is_viable(self) -> bool:
-        """Check if class section meets minimum requirements"""
-        return (len(self.students) >= MIN_STUDENTS and 
-                len(self.instructors) >= 1 and
-                len(self.instructors) <= MAX_INSTRUCTORS_PER_CLASS)
-
-@dataclass
-class ClassPeriod:
-    """Container for all sections of a specific class time"""
-    name: str
-    sections: List[ClassSection] = field(default_factory=list)
-    
-    def add_section(self, section: ClassSection) -> bool:
-        """Add a section if we haven't reached the maximum"""
-        if len(self.sections) < MAX_SECTIONS_PER_CLASS:
-            self.sections.append(section)
-            return True
-        return False
-    
-    def create_new_section(self) -> Optional[ClassSection]:
-        """Create and add a new section if possible"""
-        if len(self.sections) < MAX_SECTIONS_PER_CLASS:
-            section = ClassSection(self.name)
-            self.sections.append(section)
-            return section
-        return None
-    
-    def get_section(self, section_index: int) -> Optional[ClassSection]:
-        """Get a specific section by index"""
-        if 0 <= section_index < len(self.sections):
-            return self.sections[section_index]
-        return None
-    
-    def get_total_students(self) -> int:
-        """Get total number of students across all sections"""
-        return sum(section.get_student_count() for section in self.sections)
-    
-    def get_viable_sections(self) -> List[ClassSection]:
-        """Get all sections that meet minimum requirements"""
-        return [section for section in self.sections if section.is_viable()]
-    
-    def remove_non_viable_sections(self) -> List[Student]:
-        """Remove sections that don't meet requirements and return displaced students"""
-        displaced_students = []
-        viable_sections = []
-        
-        for section in self.sections:
-            if section.is_viable():
-                viable_sections.append(section)
-            else:
-                displaced_students.extend(section.students)
-        
-        self.sections = viable_sections
-        return displaced_students
 
 class SchedulingPriorityQueue:
     """Priority queue for scheduling decisions"""

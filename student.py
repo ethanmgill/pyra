@@ -1,8 +1,8 @@
+from dataclasses import dataclass
 from enums import Availability
 from typing import Dict
-import pandas as pd
-import re
 
+@dataclass
 class Student:
     id: str
     full_name: str

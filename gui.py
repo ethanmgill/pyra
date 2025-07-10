@@ -1,8 +1,5 @@
 from schedule_engine import ClassScheduler
-from collections import defaultdict
-import sys
 import os
-import openpyxl
 import pandas as pd
 import schedule_engine as se
 from datetime import datetime
