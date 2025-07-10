@@ -4,6 +4,9 @@ import openpyxl
 import pandas as pd
 from datetime import datetime
 import re
+from student import Student
+from instructor import Instructor
+from class_time import ClassPeriod
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
                             QHBoxLayout, QLabel, QPushButton, QFileDialog, 
                             QTabWidget, QTableWidget, QTableWidgetItem, 
@@ -13,83 +16,6 @@ from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
 from PyQt5.QtCore import Qt, QSize
 from PyQt5.QtGui import QIcon, QFont, QColor
 
-class Student:
-    def __init__(self, student_id, data):
-        self.id = student_id
-        self.full_name = "N/A"
-        self.data = data
-        self.classes = {}  # Dictionary to store class preferences
-        self.building = "N/A"
-        
-        # Process data to extract and clean data #
-        for column, value in data.items():
-            # Class data (extract and clean)
-            if re.match(r'^(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)', column):
-                self.classes[column] = value if pd.notna(value) else ""
-            # Full name (extract and clean)
-            elif re.match(r'^(First Name|Last Name|Name)$', column):
-                if column == "Name":
-                    self.full_name = value if pd.notna(value) else "N/A"
-                else:
-                    # If First Name or Last Name, combine them
-                    first_name = data.get('First Name', '')
-                    last_name = data.get('Last Name', '')
-                    self.full_name = f"{first_name} {last_name}".strip() or "N/A"
-            # Building assignment (clean)
-            elif re.match(r'^Building', column):
-                self.building = data.get(column)
-
-class Instructor:
-    def __init__(self, instructor_id, data):
-        self.id = instructor_id
-        self.full_name = "N/A"
-        self.data = data
-        self.classes = {}  # Dictionary to store class availability
-        self.teach_with_preference = "No Preference"
-        
-        # Process data to extract class availability and preferences
-        for column, value in data.items():
-            # Class availability (extract and clean)
-            if re.match(r'^(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)', column):
-                fname = ClassPeriod.calculate_name(column)[0]
-                self.classes[fname] = value if pd.notna(value) else ""
-            # Full name (extract and clean)
-            elif re.match(r'^(First Name|Last Name|Name)$', column):
-                if column == "Name":
-                    self.full_name = value if pd.notna(value) else "N/A"
-                else:
-                    # If First Name or Last Name, combine them
-                    first_name = data.get('First Name', '')
-                    last_name = data.get('Last Name', '')
-                    self.full_name = f"{first_name} {last_name}".strip() or "N/A"
-            # Teaching preference (extract and clean)
-            elif column == "Would you like to teach with someone else?":
-                self.teach_with_preference = value if pd.notna(value) else "No Preference"
-
-class ClassPeriod:
-    @staticmethod
-    def calculate_name(name):
-        
-        day = name.split()[0] if " " in name else ""
-        # Extract time from format "Day HH:MMam/pm-HH:MMam/pm"
-        time_pattern = r'((\d+)(:?\d+)?([ampmAMPM]{2}))-((\d+)(:?\d+)?([ampmAMPM]{2}))'
-        m = re.search(time_pattern, name)
-
-        start_time = f"{m.group(2)}{m.group(3) or ":00"}{m.group(4).lower()}"
-        end_time   = f"{m.group(6)}{m.group(7) or ":00"}{m.group(8).lower()}"
-
-        name = f"{day} {start_time}-{end_time}"
-        return (name, day, start_time, end_time)
-
-    def __init__(self, name):
-
-        # instance variables
-        self.name = name
-        self.students = [] 
-        self.instructors = []
-
-        self.name, self.day, self.start_time, self.end_time = self.calculate_name(name)
-            
 
 class ClassSchedulerApp(QMainWindow):
     def __init__(self):
