@@ -4,16 +4,9 @@ from enum import Enum
 from typing import Any, Dict
 from threading import Lock
 
-class Setting(Enum):
-    MAX_SECTIONS_PER_CLASS = "max_sections_per_class"
-    MAX_STUDENTS_PER_CLASS = "max_students_per_class"
-    MAX_INSTRUCTORS_PER_CLASS = "max_instructors_per_class"
-    MIN_STUDENTS_PER_CLASS = "min_students_per_class"
-    MAX_CLASSES_PER_INSTRUCTOR = "max_classes_per_instructor"
-    PRIORITIZE_FIRST_CHOICE = "prioritize_first_choice"
-
 
 class Settings:
+
     """ Singleton class to manage application settings. """
     _instance = None
     _lock = Lock()  # Ensure thread-safe singleton access
@@ -32,18 +25,18 @@ class Settings:
             self._settings_file = "settings.json"
             self.settings = {}
             self._defaults = {
-                Setting.MAX_SECTIONS_PER_CLASS: 3,  # Default max sections per class
-                Setting.MAX_STUDENTS_PER_CLASS: 20,
-                Setting.MAX_INSTRUCTORS_PER_CLASS: 2,
-                Setting.MIN_STUDENTS_PER_CLASS: 6,
-                Setting.MAX_CLASSES_PER_INSTRUCTOR: 2,
-                Setting.PRIORITIZE_FIRST_CHOICE: True
+                "max_sections_per_class": 3,  # Default max sections per class
+                "max_students_per_class": 20,
+                "max_instructors_per_class": 2,
+                "min_students_per_class": 6,
+                "max_classes_per_instructor": 2,
+                "prioritize_first_choice": True
             }
-            self.load_settings()
+            self._load_settings()
             self._initialized = True
 
     # UNTESTED:
-    def _load_settings(self, file_path):
+    def _load_settings(self):
         """Load settings from file, using defaults if file doesn't exist"""
         if os.path.exists(self._settings_file):
             try:
@@ -66,13 +59,13 @@ class Settings:
         except IOError as e:
             print(f"Error saving settings: {e}")
     
-    def get_setting(self, key: Setting) -> Any:
+    def get_setting(self, key: str) -> Any:
         """Get a setting value dynamically"""
-        return self._settings.get(key.value, self._defaults.get(key.value))
+        return self._settings.get(key, self._defaults.get(key))
     
-    def set_setting(self, key: Setting, value: Any) -> None:
+    def set_setting(self, key: str, value: Any) -> None:
         """Set a setting value and save to file"""
-        self._settings[key.value] = value
+        self._settings[key] = value
         self._save_settings()
     
     def get_all_settings(self) -> Dict[str, Any]:

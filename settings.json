@@ -1,0 +1,8 @@
+{
+  "max_sections_per_class": 3,
+  "max_students_per_class": 20,
+  "max_instructors_per_class": 2,
+  "min_students_per_class": 6,
+  "max_classes_per_instructor": 2,
+  "prioritize_first_choice": true
+}

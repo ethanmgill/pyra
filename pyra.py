@@ -4,6 +4,7 @@ import openpyxl
 import pandas as pd
 from datetime import datetime
 import re
+from settings import Settings
 from student import Student
 from instructor import Instructor
 from class_time import ClassPeriod
@@ -29,13 +30,7 @@ class ClassSchedulerApp(QMainWindow):
         self.classes = {}
         
         # Settings with defaults
-        self.settings = {
-            "max_students_per_class": 20,
-            "max_instructors_per_class": 2,
-            "min_students_per_class": 6,
-            "max_classes_per_instructor": 2,
-            "prioritize_first_choice": True
-        }
+        self.settings = Settings()
         
         # Setup UI
         self.setup_ui()
@@ -258,33 +253,33 @@ class ClassSchedulerApp(QMainWindow):
         # Settings fields
         self.max_students_spinbox = QSpinBox()
         self.max_students_spinbox.setRange(1, 100)
-        self.max_students_spinbox.setValue(self.settings["max_students_per_class"])
+        self.max_students_spinbox.setValue(self.settings.get_setting("max_students_per_class"))
         self.max_students_spinbox.valueChanged.connect(
-            lambda val: self.update_setting("max_students_per_class", val))
+            lambda val: self.settings.set_setting("max_students_per_class", val))
         
         self.max_instructors_spinbox = QSpinBox()
         self.max_instructors_spinbox.setRange(1, 10)
-        self.max_instructors_spinbox.setValue(self.settings["max_instructors_per_class"])
+        self.max_instructors_spinbox.setValue(self.settings.get_setting("max_instructors_per_class"))
         self.max_instructors_spinbox.valueChanged.connect(
-            lambda val: self.update_setting("max_instructors_per_class", val))
+            lambda val: self.settings.set_setting("max_instructors_per_class", val))
         
         self.min_students_spinbox = QSpinBox()
         self.min_students_spinbox.setRange(1, 50)
-        self.min_students_spinbox.setValue(self.settings["min_students_per_class"])
+        self.min_students_spinbox.setValue(self.settings.get_setting("min_students_per_class"))
         self.min_students_spinbox.valueChanged.connect(
-            lambda val: self.update_setting("min_students_per_class", val))
+            lambda val: self.settings.set_setting("min_students_per_class", val))
         
         self.max_classes_per_instructor_spinbox = QSpinBox()
         self.max_classes_per_instructor_spinbox.setRange(1, 10)
-        self.max_classes_per_instructor_spinbox.setValue(self.settings["max_classes_per_instructor"])
+        self.max_classes_per_instructor_spinbox.setValue(self.settings.get_setting("max_classes_per_instructor"))
         self.max_classes_per_instructor_spinbox.valueChanged.connect(
-            lambda val: self.update_setting("max_classes_per_instructor", val))
+            lambda val: self.settings.set_setting("max_classes_per_instructor", val))
 
         self.prioritize_combo = QComboBox()
         self.prioritize_combo.addItems(["Yes", "No"])
-        self.prioritize_combo.setCurrentText("Yes" if self.settings["prioritize_first_choice"] else "No")
+        self.prioritize_combo.setCurrentText("Yes" if self.settings.get_setting("prioritize_first_choice") else "No")
         self.prioritize_combo.currentTextChanged.connect(
-            lambda text: self.update_setting("prioritize_first_choice", text == "Yes"))
+            lambda text: self.settings.set_setting("prioritize_first_choice", text == "Yes"))
         
         # Add fields to layout
         layout.addRow("Maximum Students per Class:", self.max_students_spinbox)
@@ -295,20 +290,31 @@ class ClassSchedulerApp(QMainWindow):
         
         # Save settings button
         save_btn = QPushButton("Save Settings")
-        save_btn.clicked.connect(self.save_settings)
+        save_btn.clicked.connect(self.settings._save_settings)
         layout.addRow("", save_btn)
+
+        # Restore to default settings button
+        restore_btn = QPushButton("Restore to Default Settings")
+        restore_btn.clicked.connect(self.settings.reset_to_defaults)
+        layout.addRow("", restore_btn)
         
         # Add tab
         self.tabs.addTab(settings_widget, "Settings")
-    
+
+    ''' DEPRECATED: Settings management is now handled by the Settings class
     def update_setting(self, key, value):
         self.settings[key] = value
         self.log_activity(f"Updated setting: {key} = {value}")
-    
+    '''
     def save_settings(self):
         # Could save settings to file here if needed
-        QMessageBox.information(self, "Settings", "Settings saved successfully!")
-        self.log_activity("Settings saved")
+        try:
+            self.settings._save_settings()
+            QMessageBox.information(self, "Settings", "Settings saved successfully!")
+            self.log_activity("Settings saved")
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to save settings: {str(e)}")
+            self.log_activity(f"Error saving settings: {str(e)}")
     
     def import_students(self):
         filename, _ = QFileDialog.getOpenFileName(
